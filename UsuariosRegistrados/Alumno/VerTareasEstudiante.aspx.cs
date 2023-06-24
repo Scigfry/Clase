@@ -1,23 +1,16 @@
-﻿using AccesoDatos;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Data;
 using System.Data.SqlClient;
-using System.Linq;
-using System.Web;
-using System.Web.UI;
 using System.Web.UI.WebControls;
 
 namespace UsuariosRegistrados.Alumno
 {
     public partial class VerTareasEstudiante : System.Web.UI.Page
     {
-        private GestorBBDD gestorBBDD;
+        private string connectionString = "Server=tcp:hads2023serv.database.windows.net,1433;Initial Catalog=HADS2023;Persist Security Info=False;User ID=iayestaran009@ikasle.ehu.eus@hads2023serv;Password=Temporal#23;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            gestorBBDD = GestorBBDD.Instancia;
-
             if (!IsPostBack)
             {
                 CargarAsignaturas();
@@ -25,29 +18,27 @@ namespace UsuariosRegistrados.Alumno
             }
         }
 
-        // Resto del código...
-
         private void CargarAsignaturas()
         {
             try
             {
-                gestorBBDD.Conectar();
-
-                SqlDataReader reader = gestorBBDD.ObtenerAsignaturas(Session["Email"].ToString());
-
-                ddlAsignaturas.DataSource = reader;
-                ddlAsignaturas.DataTextField = "nombre";
-                ddlAsignaturas.DataValueField = "codigo";
-                ddlAsignaturas.DataBind();
-
-                gestorBBDD.CerrarConexion();
-                reader.Close();
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    SqlCommand command = new SqlCommand("SELECT A.codigo, A.nombre FROM Asignatura A INNER JOIN GrupoClase GC ON A.codigo = GC.codigoAsig " +
+                "INNER JOIN EstudianteGrupo EG ON GC.codigo = EG.grupo WHERE EG.email = @Email", connection);
+                    command.Parameters.AddWithValue("@Email", Session["Email"].ToString());
+                    SqlDataReader reader = command.ExecuteReader();
+                    ddlAsignaturas.DataSource = reader;
+                    ddlAsignaturas.DataTextField = "nombre";
+                    ddlAsignaturas.DataValueField = "codigo";
+                    ddlAsignaturas.DataBind();
+                    reader.Close();
+                }
             }
             catch (Exception ex)
             {
                 // Manejar cualquier excepción que ocurra durante la carga de asignaturas
-                // Puedes mostrar un mensaje de error o realizar cualquier otra acción necesaria
-                // Aquí simplemente lanzamos la excepción nuevamente
                 throw ex;
             }
         }
@@ -56,14 +47,21 @@ namespace UsuariosRegistrados.Alumno
         {
             try
             {
-                gestorBBDD.Conectar();
-                SqlDataReader reader = gestorBBDD.ObtenerTareas(Session["Email"].ToString(), ddlAsignaturas.SelectedValue);
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    SqlCommand command = new SqlCommand("SELECT codigo, descripcion, hEstimadas FROM TareaGenerica WHERE codAsig = @CodigoAsignatura " +
+                "AND explotacion = 1 AND codigo NOT IN(SELECT codTarea FROM EstudianteTarea WHERE email = @Email)", connection);
+                    command.Parameters.AddWithValue("@Email", Session["Email"].ToString());
+                    command.Parameters.AddWithValue("@CodigoAsignatura", ddlAsignaturas.SelectedValue);
+                    SqlDataReader reader = command.ExecuteReader();
 
-                gvTareas.DataSource = reader;
-                gvTareas.DataBind();
-
-                gestorBBDD.CerrarConexion();
-                reader.Close();
+                    DataTable dataTable = new DataTable();
+                    dataTable.Load(reader);
+                    gvTareas.DataSource = dataTable;
+                    gvTareas.DataBind();
+                    reader.Close();
+                }
 
                 if (gvTareas.Rows.Count == 0)
                 {
@@ -78,8 +76,6 @@ namespace UsuariosRegistrados.Alumno
             catch (Exception ex)
             {
                 // Manejar cualquier excepción que ocurra durante la carga de tareas
-                // Puedes mostrar un mensaje de error o realizar cualquier otra acción necesaria
-                // Aquí simplemente lanzamos la excepción nuevamente
                 throw ex;
             }
         }
