@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
@@ -350,6 +351,29 @@ namespace AccesoDatos
             {
                 throw new DatabaseException("Error al ejecutar la consulta.", ex);
             }
+        }
+
+        public DataTable ObtenerDatosTabla(string query, SqlParameter[] parametros)
+        {
+            DataTable tabla = new DataTable();
+
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    if (parametros != null)
+                    {
+                        command.Parameters.AddRange(parametros);
+                    }
+
+                    using (SqlDataAdapter adapter = new SqlDataAdapter(command))
+                    {
+                        adapter.Fill(tabla);
+                    }
+                }
+            }
+
+            return tabla;
         }
 
 
